@@ -271,17 +271,23 @@ message LinuxContainerSecurityContext {
     // ... existing fields ...
     
     // cgroup_mount_mode controls how the cgroup filesystem is mounted in the
-    // container. Only effective with cgroup v2.
+    // container.
     CgroupMountMode cgroup_mount_mode = 18;
 }
 
 // CgroupMountMode defines how the cgroup filesystem is mounted in a container.
+// The runtime MUST fail container creation if it cannot honor the requested
+// mode.
 enum CgroupMountMode {
     // CGROUP_MOUNT_MODE_UNSPECIFIED uses the runtime's default mount mode.
     CGROUP_MOUNT_MODE_UNSPECIFIED = 0;
-    // CGROUP_MOUNT_MODE_READ_ONLY mounts the cgroup filesystem read-only.
+    // CGROUP_MOUNT_MODE_READ_ONLY mounts the cgroup filesystem read-only. The
+    // runtime cannot honor this mode for a privileged container, whose cgroup
+    // filesystem is always writable.
     CGROUP_MOUNT_MODE_READ_ONLY = 1;
-    // CGROUP_MOUNT_MODE_READ_WRITE allows the container to manage its cgroup subtree.
+    // CGROUP_MOUNT_MODE_READ_WRITE mounts the cgroup filesystem read-write. The
+    // runtime cannot honor this mode unless the host mounts cgroup v2 with
+    // nsdelegate.
     CGROUP_MOUNT_MODE_READ_WRITE = 2;
 }
 
@@ -302,8 +308,9 @@ mount mode. For example, containerd's `cgroup_writable` configuration field
 can make this default writable. An explicit `ReadOnly` maps to
 `CGROUP_MOUNT_MODE_READ_ONLY` and overrides the runtime's default.
 
-A runtime must fail container creation if it cannot honor
-`CGROUP_MOUNT_MODE_READ_WRITE`, including when `nsdelegate` is absent.
+A runtime must fail container creation if it cannot honor the requested mode,
+including `CGROUP_MOUNT_MODE_READ_WRITE` without `nsdelegate` and
+`CGROUP_MOUNT_MODE_READ_ONLY` for a privileged container.
 
 Each `CgroupOptions` option has its own `RuntimeFeatures` capability.
 
