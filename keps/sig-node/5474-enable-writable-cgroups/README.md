@@ -218,6 +218,7 @@ type SecurityContext struct {
 type CgroupOptions struct {
     // MountMode controls whether the cgroup filesystem is mounted as writable.
     // If not specified, the container runtime's default mount mode is used.
+    // "ReadOnly" cannot be set when the container's privileged field is true.
     // +optional
     MountMode *CgroupMountMode
 }
@@ -373,8 +374,10 @@ The scheduler and kubelet admission enforce the prerequisites described under
 **System Validation**:
 
 `cgroupOptions.mountMode` accepts `ReadOnly` and `ReadWrite`. The API rejects
-`cgroupOptions` when `spec.os.name` is `windows`, following the other Linux-only
-securityContext fields.
+`ReadOnly` when `privileged` is true because a privileged container's cgroup
+filesystem is always writable. The API rejects `cgroupOptions` when
+`spec.os.name` is `windows`, following the other Linux-only securityContext
+fields.
 
 Ephemeral containers cannot set `cgroupOptions`. Allowing them to request writable
 cgroups would require applying descendant limits to an existing Pod cgroup when
