@@ -249,7 +249,11 @@ The runtime capability is node-level and independent of runtime handlers. It
 reports only that the runtime accepts `cgroup_mount_mode`. The kubelet checks the
 host prerequisites itself at startup.
 
-Both explicit mount modes require these prerequisites. An omitted `mountMode`,
+Both explicit mount modes require these prerequisites. `ReadOnly` needs only the
+runtime capability, but it shares the node feature with `ReadWrite`, so Pods that
+request `ReadOnly` are also kept off nodes that lack the host prerequisites. A
+single feature keeps the node contract simple. Beta can split it if a workload
+needs `ReadOnly` on such a node. An omitted `mountMode`,
 including an empty `cgroupOptions` object, uses the runtime default and does not
 require the node to declare `CgroupOptions`. Descendant and depth limits apply
 only when a container requests `ReadWrite`.
