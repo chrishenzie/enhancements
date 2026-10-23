@@ -313,8 +313,10 @@ can make this default writable. An explicit `ReadOnly` maps to
 `CGROUP_MOUNT_MODE_READ_ONLY` and overrides the runtime's default.
 
 A runtime must fail container creation if it cannot honor the requested mode,
-including `CGROUP_MOUNT_MODE_READ_WRITE` without `nsdelegate` and
-`CGROUP_MOUNT_MODE_READ_ONLY` for a privileged container.
+including `CGROUP_MOUNT_MODE_READ_WRITE` without `nsdelegate`,
+`CGROUP_MOUNT_MODE_READ_ONLY` for a privileged container, and either mode when
+a container mount at `/sys/fs/cgroup` or one of its parent directories replaces
+or hides the cgroup mount.
 
 Each `CgroupOptions` option has its own `RuntimeFeatures` capability.
 
