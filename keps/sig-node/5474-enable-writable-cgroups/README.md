@@ -126,7 +126,7 @@ As a developer, I need to run Docker-in-Docker for testing and development purpo
 
 #### Story 2: Dynamic Resource Management
 
-As a developer, I might want to create sub-cgroups for finer granularity and concise control over the different in-pod processes. For instance, distributed AI/ML frameworks like Ray can create sub-cgroups for each worker process and dynamically adjust CPU and memory limits based on workload patterns, enabling better resource utilization and isolation without requiring privileged access.
+As a developer, I might want to create sub-cgroups for finer granularity and concise control over the different in-pod processes. For instance, Ray runs its system processes alongside user code in the same container and can reserve part of the container's CPU and memory for them, without requiring privileged access.
 Another example is, [KubeVirt](https://github.com/kubevirt/kubevirt) runs a hypervisor and a guest VM in the same unprivileged pod which sometimes demands to divide the resources between the management layer (hypervisor + management processes) and the guest layer (e.g. vCPU processes). Currently the management of sub-cgroups is done by a privileged component in a somewhat hacky way, but with writable cgroups the unprivileged pod itself could create and manage these cgroups.
 
 
