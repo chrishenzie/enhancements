@@ -314,9 +314,12 @@ can make this default writable. An explicit `ReadOnly` maps to
 
 A runtime must fail container creation if it cannot honor the requested mode,
 including `CGROUP_MOUNT_MODE_READ_WRITE` without `nsdelegate`,
-`CGROUP_MOUNT_MODE_READ_ONLY` for a privileged container, and either mode when
-a container mount at `/sys/fs/cgroup` or one of its parent directories replaces
-or hides the cgroup mount.
+`CGROUP_MOUNT_MODE_READ_ONLY` for a privileged container,
+`CGROUP_MOUNT_MODE_READ_WRITE` for a host-network container in a user namespace,
+and either mode when a container mount at `/sys/fs/cgroup` or one of its parent
+directories replaces or hides the cgroup mount. A host-network container in a
+user namespace cannot mount sysfs, so runtimes bind-mount the host's `/sys`
+read-only there, which leaves the cgroup filesystem read-only.
 
 Each `CgroupOptions` option has its own `RuntimeFeatures` capability.
 
@@ -387,8 +390,11 @@ The scheduler and kubelet admission enforce the prerequisites described under
 **System Validation**:
 
 `cgroupOptions.mountMode` accepts `ReadOnly` and `ReadWrite`. The API rejects
-`ReadOnly` when `privileged` is true because a privileged container's cgroup
-filesystem is always writable. The API rejects `cgroupOptions` when
+`ReadOnly` when `privileged` is true because, outside a host-network user
+namespace, a privileged container's cgroup filesystem is always writable. The
+API rejects `ReadWrite` when `hostNetwork` is true and `hostUsers` is false
+because the runtime bind-mounts the host's `/sys` read-only in that
+configuration and cannot honor the mode. The API rejects `cgroupOptions` when
 `spec.os.name` is `windows`, following the other Linux-only securityContext
 fields.
 
