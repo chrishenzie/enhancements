@@ -398,6 +398,12 @@ configuration and cannot honor the mode. The API rejects `cgroupOptions` when
 `spec.os.name` is `windows`, following the other Linux-only securityContext
 fields.
 
+[KEP-5714](../5714-cgroupns/README.md) adds `hostCgroupNamespace`. When it is
+true, the API rejects `ReadWrite` for an unprivileged container, because
+`nsdelegate` confines a writable cgroup mount only at a cgroup namespace
+boundary. A privileged container's cgroup filesystem is writable regardless, so
+the rule does not apply to it.
+
 Ephemeral containers cannot set `cgroupOptions`. Allowing them to request writable
 cgroups would require applying descendant limits to an existing Pod cgroup when
 the Pod did not initially request them.
