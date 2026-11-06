@@ -333,10 +333,10 @@ changes are required.
 The limits apply separately to each Pod. After a cgroup directory is removed, its
 kernel resources can remain allocated until cleanup completes.
 
-A Pod that requests `ReadWrite` never runs a container without the limits. The
-kubelet writes them when it creates the Pod cgroup. If the write fails, the kubelet
-removes the Pod cgroup, records a `FailedToCreatePodContainer` event on the Pod,
-and retries on the next sync.
+The kubelet sets the limits once, when it creates the Pod cgroup, together with
+the cgroup's other resource parameters. In alpha, the kubelet logs a failed write
+of a Pod cgroup's resource parameters and still starts the Pod's containers
+([kubernetes/kubernetes#144075](https://github.com/kubernetes/kubernetes/issues/144075)).
 
 ### Implementation Details
 
@@ -361,7 +361,7 @@ sequenceDiagram
         Note over Kubelet,Container Runtime: Pod Cgroup Setup
 
         Kubelet->>Kubelet: EnsureExists(pod): create Pod-level cgroup
-        Note right of Kubelet: Apply cgroup.max.descendants and cgroup.max.depth<br/>on the Pod cgroup; a write failure fails the Pod sync
+        Note right of Kubelet: Set cgroup.max.descendants and cgroup.max.depth<br/>with the Pod cgroup's other resource parameters
 
         Note over Kubelet,Container Runtime: Container Creation
         
@@ -437,7 +437,7 @@ Coverage for new and existing packages:
 
 - `k8s.io/kubernetes/pkg/apis/core/validation`:  Unit tests for CgroupOptions validation logic, Linux-only constraints, and ephemeral-container exclusion
 - `k8s.io/kubernetes/pkg/kubelet/kuberuntime`: Security context conversion tests including CgroupOptions mapping
-- `k8s.io/kubernetes/pkg/kubelet/cm`: Pod cgroup limit configuration and failure behavior when the limits cannot be applied
+- `k8s.io/kubernetes/pkg/kubelet/cm`: Pod cgroup limit configuration
 - `k8s.io/pod-security-admission/policy`: Pod Security Standards policy enforcement tests
 - `k8s.io/kubernetes/pkg/apis/core/v1`:  API defaulting and conversion tests
 - `k8s.io/component-helpers/nodedeclaredfeatures/features/cgroupoptions`: Node feature discovery and Pod requirement inference
@@ -481,7 +481,8 @@ Coverage for new and existing packages:
 - Feature gate enabled by default
 - E2E tests stable and passing consistently
 - Both containerd and CRI-O support the feature in a released version, per the [CRI API dev policy](https://www.kubernetes.dev/docs/code/cri-api-dev-policies/#same-maturity-level-for-beta-and-ga)
-- Re-evaluate the Pod descendant and depth limits with alpha feedback: the defaults of 250 and 50, and failing Pod startup when they cannot be applied
+- Re-evaluate the Pod descendant and depth limit defaults of 250 and 50 with alpha feedback
+- The kubelet fails Pod startup when it cannot write the Pod cgroup's resource parameters, which include the descendant and depth limits ([kubernetes/kubernetes#144075](https://github.com/kubernetes/kubernetes/issues/144075))
 - Evaluate exposing the limits in `KubeletConfiguration` for per-node tuning
 - Document that the kubelet watches cgroups that containers create unless `PodAndContainerStatsFromCRI` is enabled and the runtime implements `PodSandboxStats`. Recommend enabling the gate on nodes that run Pods with writable cgroups
 
@@ -737,7 +738,7 @@ No different from existing pod creation. If the apiserver is unavailable, no new
 | Host's `/sys/fs/cgroup` is not mounted with `nsdelegate` | The scheduler and kubelet admission behave as in the first row. The kubelet check at container creation (second row) reports the message `writable cgroups require the cgroup filesystem to be mounted with nsdelegate`. The kubelet reads the mount options once, at startup. If `nsdelegate` is removed later, the runtime fails container creation | Mount `/sys/fs/cgroup` with `nsdelegate` and restart kubelet after changing the mount options | `node.status.declaredFeatures`; Pod events; `findmnt /sys/fs/cgroup`; runtime logs | runtime contract; node support tests |
 | Kubelet does not manage a cgroup per Pod (`--cgroups-per-qos=false`) | The scheduler and kubelet admission behave as in the first row. The kubelet check at container creation (second row) reports the message `writable cgroups require the kubelet to manage a cgroup per pod (--cgroups-per-qos)` | Enable `cgroupsPerQOS` in the kubelet configuration; or remove the field from the pod spec | `node.status.declaredFeatures`; Pod events; kubelet `/configz` | node support tests |
 | Container runtime receives `CGROUP_MOUNT_MODE_READ_ONLY` for a privileged container | The kubelet does not send this pairing because the API rejects `ReadOnly` when `privileged` is true. Another CRI client can send it. The runtime then fails container creation. If a future release relaxed the API rule, a container created through the kubelet would stay `Waiting` with reason `CreateContainerError` | Remove `mountMode: ReadOnly` or `privileged: true` from the container | Pod events; runtime logs | runtime contract; unit tests |
-| Kubelet cannot apply the Pod descendant and depth limits | `FailedToCreatePodContainer` event on the Pod; its containers do not start and the kubelet retries each sync | Remove the field from the pod spec; or fix the cgroup write error reported in the event | Pod events; kubelet logs | unit tests |
+| Kubelet cannot apply the Pod descendant and depth limits | The kubelet logs `cgroup manager.Set failed` and starts the Pod's containers. `cgroup.max.descendants` or `cgroup.max.depth` reads `max`, the kernel default, in the Pod cgroup ([kubernetes/kubernetes#144075](https://github.com/kubernetes/kubernetes/issues/144075)) | Fix the cgroup write error reported in the kubelet log, then recreate the Pod | kubelet logs; `cgroup.max.descendants` and `cgroup.max.depth` in the Pod cgroup | none in alpha |
 | Pod reaches its descendant limit | `mkdir` returns `EAGAIN` when `cgroup.max.descendants` is reached | Remove unused cgroups inside the container; the limit is per Pod and bounds node resource use | container logs; Pod cgroup `cgroup.stat` | e2e for descendant bound |
 
 ###### What steps should be taken if SLOs are not being met to determine the problem?
