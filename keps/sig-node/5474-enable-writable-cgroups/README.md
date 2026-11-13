@@ -296,7 +296,8 @@ enum CgroupMountMode {
     CGROUP_MOUNT_MODE_READ_ONLY = 1;
     // CGROUP_MOUNT_MODE_READ_WRITE mounts the cgroup filesystem read-write. The
     // runtime cannot honor this mode unless the host mounts cgroup v2 with
-    // nsdelegate.
+    // nsdelegate. The runtime MUST fail container creation for this mode with
+    // CgroupNamespace.Mode=NODE when the container is not privileged.
     CGROUP_MOUNT_MODE_READ_WRITE = 2;
 }
 
@@ -325,6 +326,12 @@ and either mode when a container mount at `/sys/fs/cgroup` or one of its parent
 directories replaces or hides the cgroup mount. A host-network container in a
 user namespace cannot mount sysfs, so runtimes bind-mount the host's `/sys`
 read-only there, which leaves the cgroup filesystem read-only.
+
+[KEP-5714](../5714-cgroupns/README.md) adds `NamespaceOption.cgroupns_options`.
+A runtime must also fail container creation for `CGROUP_MOUNT_MODE_READ_WRITE`
+when that option sets the cgroup namespace mode to `NODE` and the container is
+not privileged, because `nsdelegate` confines a writable cgroup mount only at a
+cgroup namespace boundary.
 
 Each `CgroupOptions` option has its own `RuntimeFeatures` capability.
 
